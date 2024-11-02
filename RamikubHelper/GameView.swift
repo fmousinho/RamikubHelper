@@ -6,75 +6,152 @@
 //
 
 import SwiftUI
+import AVFAudio
 
 struct GameView: View {
     
     @Bindable var viewModel: RamikubViewModel
     @State var turnIndex: Int = 0
     
+    private let controlFont: Font = .title3
+    private let goldColor = Color(red: 255/255, green: 215/255, blue: 0/255)
     
     var body: some View {
+        GeometryReader { geometry in
+            VStack {
+                Spacer()
+                Text("Player Turn").font(.title3)
+                playersGameView (boxWidth: geometry.size.width)
+                Spacer()
+                gameControls
+                Spacer()
+                HStack {
+                    resetGameButton
+                }
+                .font(controlFont)
+                .padding()
+            }
+        }
+        .onDisappear {
+            timer.upstream.connect().cancel()
+        }
+        
+    }
+    
+    @ViewBuilder
+    private var gameControls: some View {
         VStack {
             Spacer()
-            Text("Player Turn").font(.title3)
-            playersGameView
+            nextPlayerButton
             Spacer()
-            Text("Time Left").font(.title3)
+            animatedCounter
             HStack {
                 pauseTimerButton
-                counter
-                nextPlayerButton
+                Spacer()
+                muteButton
             }
-            
-            Spacer()
-            HStack {
-                resetGameButton
-            }
-            .font(.title3)
             .padding()
-            
+        }
+        .font(controlFont)
+    }
+    
+    private let buzzerPlayer: AVAudioPlayer?
+    
+    init (viewModel: RamikubViewModel) {
+        self.viewModel = viewModel
+        timeRemaining = viewModel.counterValue
+        let buzzerSoundFilePath = Bundle.main.path (forResource: "mixkit-wrong-long-buzzer-954", ofType: "wav")
+        let buzzerSoundFileURL = URL (fileURLWithPath: buzzerSoundFilePath!)
+        self.buzzerPlayer = try! AVAudioPlayer(contentsOf: buzzerSoundFileURL)
+    }
+    
+    @State private var timeRemaining: Int
+    @State private var timerIsPaused: Bool = false
+    @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State private var muted = false
+   
+
+    var animatedCounter: some View {
+        counter
+        .onReceive(timer) { _ in
+            if timeRemaining > 0 && !timerIsPaused {
+                timeRemaining -= 1
+                if timeRemaining <= 5 &&
+                    timeRemaining > 0 &&
+                    !muted {
+                    AudioServicesPlaySystemSound(1306)
+                }
+                if timeRemaining == 0 && !muted {
+                    Task {
+                        buzzerPlayer?.prepareToPlay()
+                        buzzerPlayer?.play()
+                    }
+                }
+            }
         }
     }
     
+//    var animatedCounter: some View {
+//        Pie(endAngle: .degrees(card.bonusPercentRemaining * 360))
+//            .opacity(Constants.Pie.opacity)
+//            .overlay(cardContents.padding(Constants.Pie.inset))
+//            .padding(Constants.inset)
+//            .cardify(isFaceUp: card.isFaceUp)
+//            .transition(.scale)
+//    }
+    
     var pauseTimerButton: some View {
-        Button("Pause Timer") {
-                    }
+        Button(timerIsPaused ? "Resume Timer" : "Pause Timer") {
+            timerIsPaused.toggle()
+        }
+    }
+    
+    var muteButton: some View {
+        Button (muted ? "Unmute" : "Mute") {
+            muted.toggle()
+        }
     }
     
     var nextPlayerButton: some View {
-        Button("Next Player") {
-            
-        }
-    }
-    
-    var playersGameView: some View {
         VStack {
-            ForEach (viewModel.players.indices, id: \.self) { index in
-                PlayerGameView (player: viewModel.players[index])
+            Image(systemName: "forward.fill")
+            Text("Next Player")
+        }
+        .foregroundStyle(.blue)
+        .padding()
+        .background(goldColor)
+        .onTapGesture {
+            withAnimation {
+                advancePlayer()
+                timeRemaining = viewModel.counterValue
             }
         }
     }
     
-    var addPlayerButton: some View {
-        Button("Add Player") {
-            viewModel.addPlayer()
+    func advancePlayer () {
+        if turnIndex < viewModel.players.count - 1  {
+            turnIndex += 1
+        } else {
+            turnIndex = 0
         }
-        .disabled(viewModel.numberOfPlayers >= viewModel.maxPlayers)
+    }
+    
+    func playersGameView (boxWidth: CGFloat) -> some View {
+        VStack {
+            ForEach (viewModel.players.indices, id: \.self) { index in
+                PlayerGameView (player: viewModel.players[index], boxWidth: boxWidth)
+                    .border(index == turnIndex ? goldColor : Color.white, width: 10)
+            }
+        }
     }
     
     var counter: some View {
-        CustomStepper(count: $viewModel.counterValue)
-    }
-    
-    var readyButton: some View {
-        Button ("Start Game") {
-            
-        }
+        CustomStepper(count: $timeRemaining)
     }
     
     var resetGameButton: some View {
-        Button ("Reset Values") {
-            viewModel.resetAll()
+        NavigationLink ("Back to Setup") {
+            SetupView (viewModel: viewModel)
         }
     }
     
@@ -90,15 +167,16 @@ struct PlayerGameView: View {
     let playerFontColor: Color = .black
     
     let player: Player
+    let boxWidth: CGFloat
     
     var body: some View {
         Text (player.name == "" ? "Player" : player.name)
-        .foregroundStyle(playerFontColor)
-        .font(playerFont)
-        .padding()
-        .border(.gray)
-        .frame(width: .infinity, alignment: .leading)
-
+            .frame(maxWidth: boxWidth, alignment: .leading)
+            .foregroundStyle(playerFontColor)
+            .font(playerFont)
+            .padding()
+            .border(.gray)
+            .padding(10)
     }
 }
 
@@ -117,10 +195,10 @@ struct ScoresView: View {
 }
 
 
-
-
-
-#Preview {
-    var viewModel = RamikubViewModel()
-    GameView(viewModel: viewModel)
+struct GameView_Previews: PreviewProvider {
+   
+    static var previews:some View {
+        @State var viewModel = RamikubViewModel(counterValue: 10)
+        GameView(viewModel: viewModel)
+    }
 }

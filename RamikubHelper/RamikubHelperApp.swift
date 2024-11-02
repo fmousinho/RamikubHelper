@@ -12,7 +12,7 @@ struct RamikubHelperApp: App {
     @State var game = RamikubViewModel()
     var body: some Scene {
         WindowGroup {
-            ContentView(viewModel: game)
+            SetupView(viewModel: game)
         }
     }
 }

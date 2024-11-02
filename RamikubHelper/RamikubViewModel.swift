@@ -12,19 +12,35 @@ import SwiftUI
     private(set) var game: RamikubGame = RamikubGame()
 
     let maxPlayers: Int = 4
-    var players: Array<Player> = []
+    var players: Array<Player> {
+        get { game.players }
+        set { game.players = newValue }
+    }
     
     var numberOfPlayers: Int {
-        max (game.numberOfPlayers, 2)
+        max (players.count, 2)
+    }
+    
+    var counterValue: Int {
+        get {
+            game.counterValue
+        }
+        set {
+            game.counterValue = newValue
+        }
     }
    
-    init() {
+    init(counterValue: Int? = nil) {
         addPlayer ()
         addPlayer ()
+        if counterValue != nil {
+            self.counterValue = counterValue!
+        }
     }
         
-    func addPlayer() {
-        game.addPlayer (to: &players)
+    func addPlayer(name: String = "") {
+        game.addPlayer ()
+       
     }
     
     func updateScoreFor (playerId: Int, score: Int, round: Int) {
@@ -37,7 +53,6 @@ import SwiftUI
     
     func resetAll() {
         game = RamikubGame()
-        players = []
         addPlayer ()
         addPlayer ()
     }
