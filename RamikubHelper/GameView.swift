@@ -7,14 +7,12 @@
 
 import SwiftUI
 import AVFAudio
+import Combine
 
 struct GameView: View {
     
     @Bindable var viewModel: RamikubViewModel
-    @State var turnIndex: Int = 0
-    
-    private let controlFont: Font = .title3
-    private let goldColor = Color(red: 255/255, green: 215/255, blue: 0/255)
+    @State var turnIndex: Int = 0    
     
     var body: some View {
         GeometryReader { geometry in
@@ -32,19 +30,52 @@ struct GameView: View {
                 .padding()
             }
         }
+        .onAppear {
+            startTimer()
+        }
         .onDisappear {
-            timer.upstream.connect().cancel()
+            stopTimer()
         }
         
+    }
+    
+    func startTimer() -> Void {
+        let clickStartTime = 5
+        timer = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink {_ in
+                if timeRemaining > 0 && !timerIsPaused {
+                    timeRemaining -= 1
+                    if timeRemaining <= clickStartTime &&
+                        timeRemaining > 0 &&
+                        !muted {
+                        AudioServicesPlaySystemSound(1306)
+                    }
+                    if timeRemaining == 0 && !muted {
+                        Task {
+                            buzzerPlayer?.prepareToPlay()
+                            buzzerPlayer?.play()
+                        }
+                    }
+                }
+            }
+    }
+    
+    func stopTimer() -> Void {
+        timer?.cancel()
+        timer = nil
     }
     
     @ViewBuilder
     private var gameControls: some View {
         VStack {
             Spacer()
-            nextPlayerButton
+            HStack {
+                roundOverButton
+                nextPlayerButton
+            }
             Spacer()
-            animatedCounter
+            counter
             HStack {
                 pauseTimerButton
                 Spacer()
@@ -67,29 +98,9 @@ struct GameView: View {
     
     @State private var timeRemaining: Int
     @State private var timerIsPaused: Bool = false
-    @State private var timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    @State private var muted = false
+    @State private var muted = true
+    @State private var timer: AnyCancellable?
    
-
-    var animatedCounter: some View {
-        counter
-        .onReceive(timer) { _ in
-            if timeRemaining > 0 && !timerIsPaused {
-                timeRemaining -= 1
-                if timeRemaining <= 5 &&
-                    timeRemaining > 0 &&
-                    !muted {
-                    AudioServicesPlaySystemSound(1306)
-                }
-                if timeRemaining == 0 && !muted {
-                    Task {
-                        buzzerPlayer?.prepareToPlay()
-                        buzzerPlayer?.play()
-                    }
-                }
-            }
-        }
-    }
     
 //    var animatedCounter: some View {
 //        Pie(endAngle: .degrees(card.bonusPercentRemaining * 360))
@@ -114,17 +125,26 @@ struct GameView: View {
     
     var nextPlayerButton: some View {
         VStack {
-            Image(systemName: "forward.fill")
+            Image(systemName: "forward.fill").frame(height: 10)
             Text("Next Player")
         }
-        .foregroundStyle(.blue)
-        .padding()
-        .background(goldColor)
+        .buttonStyle()
         .onTapGesture {
             withAnimation {
                 advancePlayer()
                 timeRemaining = viewModel.counterValue
             }
+        }
+    }
+    
+    @ViewBuilder
+    var roundOverButton: some View {
+        NavigationLink (destination: roundScoringView()) {
+            VStack {
+                Image(systemName: "star.square.on.square").frame(height: 10)
+                Text("Finish Round")
+            }
+            .buttonStyle()
         }
     }
     
@@ -154,8 +174,6 @@ struct GameView: View {
             SetupView (viewModel: viewModel)
         }
     }
-    
-   
 }
     
     
