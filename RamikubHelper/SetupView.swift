@@ -9,11 +9,11 @@ import SwiftUI
 
 struct SetupView: View {
     
-    @Bindable var viewModel: RamikubViewModel
+    @Environment(RamikubViewModel.self) private var vm
     
     var body: some View {
         NavigationStack {
-            GeometryReader { geometry in
+           GeometryReader { geometry in
                 VStack {
                     Text ("Welcome to Ramikub Helper").font(.title)
                     Spacer()
@@ -21,7 +21,7 @@ struct SetupView: View {
                     configuredPlayersView (boxWidth: geometry.size.width)
                     addPlayerButton
                     Spacer()
-                    Text("How many seconds to finish a play?").font(.title3)
+                    Text("How many seconds to finish a play?").font(controlFont)
                     counter
                     Spacer()
                     HStack {
@@ -29,79 +29,65 @@ struct SetupView: View {
                         Spacer()
                         readyButton
                     }
-                    .font(.title3)
+                    .font(controlFont)
                     .padding()
                 }
             }
-        }
-
-       
-    }
-    
-    func configuredPlayersView (boxWidth: CGFloat) -> some View {
-        VStack {
-            ForEach (viewModel.players.indices, id: \.self) { index in
-                PlayerSetupView (player: $viewModel.players[index], boxWidth: boxWidth)
+           .onAppear() {
+               vm.resetScores()
+           }
+            .onDisappear{
+                vm.cleanBlankPlayerNames()
             }
         }
     }
     
-    var addPlayerButton: some View {
+    private func configuredPlayersView (boxWidth: CGFloat) -> some View {
+        VStack {
+            let players = Binding (
+                get: { vm.players },
+                set: { vm.players = $0 }
+            )
+            ForEach (players, id:\.id) {player in
+                PlayersView (player: player, boxWidth: boxWidth)
+            }
+        }
+    }
+    
+    private var addPlayerButton: some View {
         Button("Add Player") {
-            viewModel.addPlayer()
+            vm.addPlayer()
         }
-        .disabled(viewModel.numberOfPlayers >= viewModel.maxPlayers)
+        .isHidden(vm.players.count == vm.maxPlayers)
     }
     
-    var counter: some View {
-        CustomStepper(count: $viewModel.counterValue)
+    private var counter: some View {
+        let counterValue = Binding (
+            get: { vm.counterValue },
+            set: { vm.counterValue = $0 }
+        )
+        return CustomStepper(count: counterValue)
     }
     
-    var readyButton: some View {
-        NavigationLink ("Start Game") {
-            GameView (viewModel: viewModel)
-                .navigationBarBackButtonHidden()
+    private var readyButton: some View {
+        Button ("Start Game") {
+            vm.playState = .game
         }
     }
     
-    var resetGameButton: some View {
+    private var resetGameButton: some View {
         Button ("Reset Values") {
-            viewModel.resetAll()
+            vm.resetAll()
         }
     }
-    
    
 }
     
-    
-    
-
-struct PlayerSetupView: View {
-    
-    let playerFont: Font = .system(.title3)
-    let playerFontColor: Color = .black
-    
-    @Binding var player: Player
-    let boxWidth: CGFloat
-    
-    init (player: Binding<Player>, boxWidth: CGFloat) {
-        self._player = player
-        self.boxWidth = boxWidth
-    }
-    
-    var body: some View {
-        TextField (player.name == "" ? "Player" : player.name, text:$player.name)
-            .frame(maxWidth: boxWidth, alignment: .leading)
-            .disableAutocorrection(true)
-            .foregroundStyle(playerFontColor)
-            .font(playerFont)
-            .padding()
-            .border(.gray)
-            .padding(10)
-        }}
 
 
 #Preview {
-    var viewModel = RamikubViewModel()
-    SetupView(viewModel: viewModel)
+    let viewModel = RamikubViewModel()
+    SetupView().environment(viewModel)
 }
+
+

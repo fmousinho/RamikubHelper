@@ -9,10 +9,10 @@ import SwiftUI
 
 @main
 struct RamikubHelperApp: App {
-    @State var game = RamikubViewModel()
+    @State private var game = RamikubViewModel()
     var body: some Scene {
         WindowGroup {
-            SetupView(viewModel: game)
+            MainView().environment(game)
         }
     }
 }

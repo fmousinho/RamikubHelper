@@ -20,30 +20,48 @@ struct CustomStepper: View {
                 .fill(.gray)
                 .opacity(0.3)
                 .frame(width: 200, height:  200)
-            HStack {
-                Button(action: {
-                    count -= 1
-                }) {
-                    Image(systemName: "minus")
-                        .font(.headline)
-                }
-                .disabled(count == range.lowerBound)
-                
-                Text("\(count)")
-                    .font(.system(size: 50))
-                    .padding()
-                
-                Button(action: {
-                    count += 1
-                }) {
-                    Image(systemName: "plus")
-                        .font(.headline)
-                }
-                .disabled(count == range.upperBound)
-            }
+            NumberSetter (count: $count, range: range)
         }
     }
 }
+
+
+struct NumberSetter: View {
+    @Binding var count: Int
+    let range: Range<Int>
+    var disabled = false
+    var disabledColor = Color.secondary.opacity(0.3)
+    
+    var body: some View {
+        HStack {
+            Button(action: {
+                count -= 1
+            }) {
+                Image(systemName: "minus.square")
+                    .font(padFont)
+                    .foregroundStyle(disabled ? disabledColor : .red)
+            }
+            .disabled(count == range.lowerBound)
+            
+            TextField("\(count)", value: $count, format: .number)
+                .multilineTextAlignment(.center)
+                .frame(width: 70, alignment: .center)
+                .font(.custom("Counter", size: 50)).minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .padding(5)
+            
+            Button(action: {
+                count += 1
+            }) {
+                Image(systemName: "plus.square")
+                    .font(padFont)
+            }
+            .disabled(count == range.upperBound)
+        }
+    }
+}
+
+
 
 struct Pie: Shape {
     var startAngle: Angle = .zero
@@ -76,9 +94,24 @@ struct Pie: Shape {
     }
 }
 
-
-
-#Preview {
-    @Previewable @State var counterValue: Int = 0
-    CustomStepper(count: $counterValue)
+extension View {
+    func isHidden(_ hidden: Bool) -> some View {
+        modifier (HideViewModifier(isHidden: hidden))
+    }
 }
+
+struct HideViewModifier: ViewModifier {
+    let isHidden: Bool
+
+    func body(content: Content) -> some View {
+        Group {
+            if isHidden {
+                EmptyView()
+            } else {
+                content
+            }
+        }
+    }
+}
+
+
